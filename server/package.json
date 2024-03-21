@@ -1,0 +1,20 @@
+{
+  "name": "youtube-clone",
+  "version": "1.0.0",
+  "description": "It is a youtube clone backend",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "dev": "nodemon src/index.js",
+    "start": "node src/index.js"
+  },
+  "keywords": [
+    "MongoDB"
+  ],
+  "author": "Prafull singh",
+  "license": "ISC",
+  "devDependencies": {
+    "nodemon": "^3.1.0",
+    "prettier": "^3.2.5"
+  }
+}

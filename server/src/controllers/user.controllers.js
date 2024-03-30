@@ -2,9 +2,14 @@ import { User } from "../models/user.model.js";
 import { ApiError } from "../utils/apiError.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { cloudinaryUploader } from "../utils/cloudinary.js";
-import { registerUserValidator } from "../validators/user.validator.js";
+import {
+  changePasswordValidator,
+  registerUserValidator,
+  updateUSerDetailValidator,
+} from "../validators/user.validator.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { generateAccessTokenAndRefreshToken } from "../utils/generateTokens.js";
+import jwt from "jsonwebtoken";
 
 export const registerUser = asyncHandler(async (req, res) => {
   const { success, error } = registerUserValidator.safeParse(req.body);
@@ -135,6 +140,123 @@ export const logoutUser = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, {}, "User logged out"));
 });
 
-export const refreshAccessToken = asyncHandler(async (req, res) => {});
+export const getLoggedInUser = asyncHandler(async (req, res) => {
+  res
+    .status(200)
+    .json(new ApiResponse(200, req.user, "Successfully fetch logged in user"));
+});
 
-export const changePassword = asyncHandler(async (req, res) => {});
+export const refreshAccessToken = asyncHandler(async (req, res) => {
+  // Getting refresh token from frontend
+  const comingRefreshToken =
+    req.cookies?.refreshToken ||
+    req.headers["Authorization"] ||
+    req.body.refreshToken;
+  // Checking for token
+  if (!comingRefreshToken) throw new ApiError(404, "Token not found");
+  try {
+    // Verifying refresh token
+    const { id } = await jwt.verify(
+      comingRefreshToken,
+      process.env.REFRESH_TOKEN_SECRET
+    );
+
+    const user = await User.findById(id).select("-password");
+
+    if (!user) throw new ApiError(403, "Invalid token");
+
+    // comparing comingRefreshToken and user Refresh token
+    if (comingRefreshToken !== user.refreshToken)
+      throw new ApiError(403, "Token not match");
+
+    const { refreshToken, accessToken } =
+      await generateAccessTokenAndRefreshToken(user._id);
+
+    const options = {
+      httpOnly: true,
+      secure: true,
+    };
+
+    return res
+      .status(200)
+      .cookies("accessToken", accessToken, options)
+      .cookies("refreshToken", refreshAccessToken, options)
+      .json(
+        new ApiResponse(
+          200,
+          { ...user, refreshToken, accessToken },
+          "Tokens refreshed successfully"
+        )
+      );
+  } catch (error) {
+    console.error("Error in generating new refresh token ", error);
+    throw new ApiError(
+      500,
+      `Error in generating new refresh token ${error.message}`
+    );
+  }
+});
+
+export const changePassword = asyncHandler(async (req, res) => {
+  // Validation
+  const { success } = changePasswordValidator.safeParse(req.body);
+  if (!success) throw new ApiError(411, "Invalid data");
+
+  // Getting data from frontend
+  const { password, newPassword } = req.body;
+
+  // Compare new password and old password
+  if (password == newPassword) throw new ApiError(400, "Same password");
+
+  // Getting user from db
+  const user = await User.findById(req.user.id);
+
+  // Checking password
+  const isMatch = user.isCorrectPassword(password);
+  if (!isMatch) throw new ApiError(403, "Invalid Credentials");
+
+  // Update password
+  user.password = newPassword;
+  await user.save({ validateBeforeSave: false });
+
+  // Converting user to JavaScript Object
+  const loggedInUser = { ...user.toObject() };
+
+  // removing password and refreshToken
+  delete loggedInUser.password;
+  delete loggedInUser.refreshToken;
+
+  return res
+    .status(202)
+    .json(new ApiResponse(202, loggedInUser, "Password Change Successfully"));
+});
+
+export const updateUserDetails = asyncHandler(async (req, res) => {
+  // Validation
+  const { success } = updateUSerDetailValidator.safeParse(req.body);
+  if (!success) throw new ApiError(411, "Invalid data");
+
+  // Getting data from frontend
+  const { fullName } = req.body;
+
+  // getting loggedIn user from DB
+  const loggedInUser = await User.findByIdAndUpdate(
+    req.user.id,
+    {
+      $set: {
+        fullName,
+      },
+    },
+    { new: true }
+  ).select("-password -refreshToken");
+
+  res
+    .status(202)
+    .json(
+      new ApiResponse(202, loggedInUser, "User details update successfully")
+    );
+});
+
+export const updateAvatar = asyncHandler(async (req, res) => {});
+
+export const updateCoverImage = asyncHandler(async (req, res) => {});

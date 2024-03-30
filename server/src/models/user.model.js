@@ -40,6 +40,8 @@ const userSchema = new Schema(
 );
 
 // Mongoose middlewares
+
+// Hashing password before saving user
 userSchema.pre("save", async function (next) {
   if (!this.isModified("password")) return next();
 
@@ -47,6 +49,17 @@ userSchema.pre("save", async function (next) {
   this.password = await bcrypt.hash(this.password, salt);
   next();
 });
+
+// Generating user name before saving user
+userSchema.pre("save", async function (next) {
+  if (!this.isModified("userName")) return next();
+
+  const userName = this.email.split("@")[0];
+  this.userName = userName;
+  next();
+});
+
+// Methods
 
 // Adding custom methods to userSchema
 userSchema.methods.isCorrectPassword = async function (password) {

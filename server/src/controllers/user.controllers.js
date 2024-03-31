@@ -289,4 +289,35 @@ export const updateAvatar = asyncHandler(async (req, res) => {
     .json(new ApiResponse(202, loggedInUser, "Avatar change Successfully"));
 });
 
-export const updateCoverImage = asyncHandler(async (req, res) => {});
+export const updateCoverImage = asyncHandler(async (req, res) => {
+  const coverImageLocalPath = req.file?.path;
+  if (!coverImageLocalPath) throw new ApiError(400, "Avatar image is missing");
+
+  const coverImage = await cloudinaryUploader(
+    coverImageLocalPath,
+    "coverImages"
+  );
+
+  if (!coverImage) throw new ApiError(400, "Error while uploading coverImage");
+
+  const loggedInUser = await User.findById(req.user.id).select(
+    "-password -refreshToken"
+  );
+
+  const oldPublicId = loggedInUser.coverImage.publicId;
+
+  loggedInUser.coverImage = {
+    url: coverImage.url,
+    publicId: coverImage.public_id,
+  };
+  await loggedInUser.save({ validateBeforeSave: false });
+
+  // delete old Image from cloudinary
+  await deleteFromCloudinary(oldPublicId);
+
+  return res
+    .status(202)
+    .json(
+      new ApiResponse(202, loggedInUser, "Cover Image change Successfully")
+    );
+});

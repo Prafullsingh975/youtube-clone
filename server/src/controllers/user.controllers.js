@@ -321,3 +321,7 @@ export const updateCoverImage = asyncHandler(async (req, res) => {
       new ApiResponse(202, loggedInUser, "Cover Image change Successfully")
     );
 });
+
+export const channelPage = asyncHandler(async (req, res) => {});
+
+export const watchHistory = asyncHandler(async (req, res) => {});

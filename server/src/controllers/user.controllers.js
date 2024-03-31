@@ -1,9 +1,13 @@
 import { User } from "../models/user.model.js";
 import { ApiError } from "../utils/apiError.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
-import { cloudinaryUploader } from "../utils/cloudinary.js";
+import {
+  cloudinaryUploader,
+  deleteFromCloudinary,
+} from "../utils/cloudinary.js";
 import {
   changePasswordValidator,
+  loginUserValidator,
   registerUserValidator,
   updateUSerDetailValidator,
 } from "../validators/user.validator.js";
@@ -40,16 +44,19 @@ export const registerUser = asyncHandler(async (req, res) => {
   if (!avatarLocalPath) throw new ApiError(400, "Avatar file is required");
 
   //   Upload image to cloudinary
-  const avatar = await cloudinaryUploader(avatarLocalPath);
-  const coverImage = await cloudinaryUploader(coverImageLocalPath);
+  const avatar = await cloudinaryUploader(avatarLocalPath, "avatars");
+  const coverImage = await cloudinaryUploader(
+    coverImageLocalPath,
+    "cover-images"
+  );
 
   if (!avatar) throw new ApiError(400, "Avatar file is required");
 
   //   creating new user to database
   const newUser = await User.create({
     fullName,
-    avatar: avatar.url,
-    coverImage: coverImage?.url || "",
+    avatar: { url: avatar.url, publicId: avatar.public_id },
+    coverImage: { url: coverImage?.url, publicId: coverImage?.public_id } || "",
     email,
     password,
     userName: "generated automatically before saving",
@@ -71,7 +78,7 @@ export const registerUser = asyncHandler(async (req, res) => {
 
 export const loginUser = asyncHandler(async (req, res) => {
   // Validate the fields
-  const { success, error } = registerUserValidator.safeParse(req.body);
+  const { success, error } = loginUserValidator.safeParse(req.body);
 
   //   Validating check
   if (!success) return res.status(400).json({ success, errors: error.errors });
@@ -113,8 +120,8 @@ export const loginUser = asyncHandler(async (req, res) => {
   // Setting cookies in response header
   return res
     .status(200)
-    .cookies("accessToken", accessToken, options)
-    .cookies("refreshToken", refreshToken, options)
+    .cookie("accessToken", accessToken, options)
+    .cookie("refreshToken", refreshToken, options)
     .json(new ApiResponse(200, loggedInUser, "User logged in successful"));
 });
 
@@ -257,6 +264,29 @@ export const updateUserDetails = asyncHandler(async (req, res) => {
     );
 });
 
-export const updateAvatar = asyncHandler(async (req, res) => {});
+export const updateAvatar = asyncHandler(async (req, res) => {
+  const avatarLocalPath = req.file?.path;
+  if (!avatarLocalPath) throw new ApiError(400, "Avatar image is missing");
+
+  const avatar = await cloudinaryUploader(avatarLocalPath, "avatars");
+
+  if (!avatar) throw new ApiError(400, "Error while uploading avatar");
+
+  const loggedInUser = await User.findById(req.user.id).select(
+    "-password -refreshToken"
+  );
+
+  const oldPublicId = loggedInUser.avatar.publicId;
+
+  loggedInUser.avatar = { url: avatar.url, publicId: avatar.public_id };
+  await loggedInUser.save({ validateBeforeSave: false });
+
+  // delete old Image from cloudinary
+  await deleteFromCloudinary(oldPublicId);
+
+  return res
+    .status(202)
+    .json(new ApiResponse(202, loggedInUser, "Avatar change Successfully"));
+});
 
 export const updateCoverImage = asyncHandler(async (req, res) => {});

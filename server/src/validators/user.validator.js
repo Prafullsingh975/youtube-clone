@@ -6,6 +6,11 @@ export const registerUserValidator = z.object({
   password: z.string().trim().min(8, "Password must have 8 characters"),
 });
 
+export const loginUserValidator = z.object({
+  email: z.string().trim().email(),
+  password: z.string().trim(),
+});
+
 export const changePasswordValidator = z.object({
   password: z.string().trim(),
   newPassword: z.string().trim(),

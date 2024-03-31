@@ -26,11 +26,12 @@ const userSchema = new Schema(
       index: true,
     },
     avatar: {
-      type: String,
+      type: { url: String, publicId: String },
       required: true,
     },
     coverImage: {
-      type: String,
+      url: String,
+      publicId: String,
     },
     watchHistory: [{ type: mongoose.Schema.Types.ObjectId, ref: "Video" }],
     password: { type: String, required: [true, "Password required"] },
@@ -66,8 +67,8 @@ userSchema.methods.isCorrectPassword = async function (password) {
   return await bcrypt.compare(password, this.password);
 };
 
-userSchema.methods.generateAccessToken = async function () {
-  return await jwt.sign(
+userSchema.methods.generateAccessToken = function () {
+  return jwt.sign(
     {
       id: this._id,
       userName: this.userName,
@@ -78,8 +79,8 @@ userSchema.methods.generateAccessToken = async function () {
   );
 };
 
-userSchema.methods.generateRefreshToken = async function () {
-  return await jwt.sign(
+userSchema.methods.generateRefreshToken = function () {
+  return jwt.sign(
     {
       id: this._id,
     },

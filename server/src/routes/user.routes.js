@@ -4,11 +4,13 @@ import {
   getLoggedInUser,
   loginUser,
   logoutUser,
+  profilePage,
   refreshAccessToken,
   registerUser,
   updateAvatar,
   updateCoverImage,
   updateUserDetails,
+  watchHistory,
 } from "../controllers/user.controllers.js";
 import { upload } from "../middlewares/multer.middleware.js";
 import { isLoggedIn } from "../middlewares/auth.middleware.js";
@@ -40,5 +42,6 @@ router
 router
   .route("/change-cover-image")
   .patch(isLoggedIn, upload.single("coverImage"), updateCoverImage);
-
+router.route("/:userName").get(isLoggedIn, profilePage);
+router.route("/").get(isLoggedIn, watchHistory);
 export default router;

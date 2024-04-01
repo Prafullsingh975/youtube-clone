@@ -8,6 +8,7 @@ import {
 import {
   changePasswordValidator,
   loginUserValidator,
+  profilePageValidator,
   registerUserValidator,
   updateUSerDetailValidator,
 } from "../validators/user.validator.js";
@@ -322,6 +323,131 @@ export const updateCoverImage = asyncHandler(async (req, res) => {
     );
 });
 
-export const channelPage = asyncHandler(async (req, res) => {});
+export const profilePage = asyncHandler(async (req, res) => {
+  const { success } = profilePageValidator.safeParse(req.params);
+  if (!success) throw new ApiError(411, "Invalid Data");
 
-export const watchHistory = asyncHandler(async (req, res) => {});
+  const { userName } = req.params;
+
+  // Using aggregation pipeline
+  // profile is an array
+  const profile = User.aggregate([
+    // first pipeline
+    {
+      $match: { userName: userName.toLowerCase().trim() }, //return an array whose userName is match with userName
+    },
+    // second pipeline
+    {
+      // type of joins
+      $lookup: {
+        from: "subscriptions", //document name from mongoDB not model name
+        localField: "_id", //field from User model
+        foreignField: "channel", //field from Subscription model
+        as: "subscribers", //data is show with the name field given to as "like subscribers"
+      },
+    },
+    // third pipeline
+    {
+      // type of joins
+      $lookup: {
+        from: "subscriptions", //document name from mongoDB not model name
+        localField: "_id", //field from User model
+        foreignField: "subscriber", //field from Subscription model
+        as: "subscribedTo", //data is show with the name field given to as "like subscribeTo"
+      },
+    },
+    // fourth pipeline
+    {
+      // Adding fields to profile object
+      $addFields: {
+        subscribersCount: { $size: "$subscribers" }, //$size gives length of array
+        subscribeToCount: { $size: "$subscribedTo" },
+        isSubscribed: {
+          $cond: {
+            if: { $in: [req.user?.id, "$subscribers.subscriber"] },
+            then: true,
+            else: false,
+          },
+        },
+      },
+    },
+    // fifth pipeline
+    {
+      // Project is similar to select() 1 means add
+      $project: {
+        fullName: 1,
+        userName: 1,
+        email: 1,
+        coverImage: 1,
+        avatar: 1,
+        subscribers: 1,
+        subscribedTo: 1,
+        subscribersCount: 1,
+        subscribeToCount: 1,
+        isSubscribed: 1,
+      },
+    },
+  ]);
+
+  if (!profile.length) throw new ApiError(404, "Profile not found");
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, profile[0], "Profile fetched successfully"));
+});
+
+export const watchHistory = asyncHandler(async (req, res) => {
+  const watchHistory = await User.aggregate([
+    {
+      $match: {
+        _id: new mongoose.Type.ObjectId(req.user.id), //converting string into mongoDB objectId
+      },
+    },
+    {
+      $lookup: {
+        from: "videos",
+        localField: "watchHistory",
+        foreignField: "_id",
+        as: watchHistory,
+        pipeline: [
+          //pipeline is use for nested aggregation
+          {
+            $lookup: {
+              from: "users",
+              localField: "createdBy",
+              foreignField: "_id",
+              as: "creator",
+              pipeline: [
+                {
+                  $project: {
+                    firstName: 1,
+                    lastName: 1,
+                    avatar: 1,
+                  },
+                },
+              ],
+            },
+          },
+          {
+            $addFields: {
+              creator: {
+                $first: "$creator",
+              },
+            },
+          },
+        ],
+      },
+    },
+  ]);
+  // we can get same watchHistory using deep populate
+
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        watchHistory[0],
+        "Watch history fetched successfully"
+      )
+    );
+});

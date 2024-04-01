@@ -19,3 +19,7 @@ export const changePasswordValidator = z.object({
 export const updateUSerDetailValidator = z.object({
   fullName: z.string().trim(),
 });
+
+export const profilePageValidator = z.object({
+  userName: z.string().trim(),
+});

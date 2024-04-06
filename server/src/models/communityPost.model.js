@@ -14,4 +14,4 @@ const communitySchema = new Schema(
   { timestamps: true }
 );
 
-export const Tweet = mongoose.model("CommunityPost", communitySchema);
+export const CommunityPost = mongoose.model("CommunityPost", communitySchema);

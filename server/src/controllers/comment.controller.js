@@ -1,11 +1,11 @@
-import { Comment } from "../models/comment.model";
-import { ApiResponse } from "../utils/ApiResponse";
-import { ApiError } from "../utils/apiError";
-import { asyncHandler } from "../utils/asyncHandler";
+import { Comment } from "../models/comment.model.js";
+import { ApiResponse } from "../utils/ApiResponse.js";
+import { ApiError } from "../utils/ApiError.js";
+import { asyncHandler } from "../utils/asyncHandler.js";
 import {
   createCommentValidator,
   updateCommentValidation,
-} from "../validators/comment.validator";
+} from "../validators/comment.validator.js";
 
 const getVideoComments = asyncHandler(async (req, res) => {
   //TODO: get all comments for a video
